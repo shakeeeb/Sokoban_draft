@@ -2,6 +2,7 @@ package sokoban.ui;
 
 import application.Main;
 import application.Main.SokobanPropertyType;
+import java.io.File;
 
 import java.io.IOException;
 import java.net.URL;
@@ -38,6 +39,9 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.media.AudioClip;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -108,10 +112,26 @@ public class SokobanUI extends Pane {
 
     // Padding
     private Insets marginlessInsets;
-
+    String buzzfile = "sounds/buzz.mp3";
+    String losefile = "sounds/lose.mp3";
+    String movefile = "sounds/move.mp3";
+    String pushfile = "sounds/push.mp3";
+    String Victoryfile = "sounds/victory.mp3";
+    
+    //sounds
+    private Media buzzr = new Media(getClass().getResource(buzzfile).toString());
+    private Media loser = new Media(getClass().getResource(losefile).toString());
+    private Media mover = new Media(getClass().getResource(movefile).toString());
+    private Media pushr = new Media(getClass().getResource(pushfile).toString());
+    private Media victoryr = new Media(getClass().getResource(Victoryfile).toString());
+    
+    private MediaPlayer buzz = new MediaPlayer(buzzr);
+    private MediaPlayer lose = new MediaPlayer(loser);
+    private MediaPlayer move = new MediaPlayer(mover);
+    private MediaPlayer push = new MediaPlayer(pushr);
+    private MediaPlayer victory = new MediaPlayer(victoryr);
     // Image path
     private String ImgPath = "file:images/";
-
     // mainPane weight && height
     private int paneWidth;
     private int paneHeigth;
@@ -159,6 +179,10 @@ public class SokobanUI extends Pane {
     public void repaint() {
         initSokobanUI();
          this.gridRenderer.repaint();
+    }
+    public void setGridthings(int cols, int rows){
+        this.gridColumns = cols;
+        this.gridRows = rows;
     }
 
     public int[][] GetGrid(){
@@ -217,6 +241,9 @@ public class SokobanUI extends Pane {
         props.addProperty(SokobanPropertyType.INSETS, "5");
         String str = props.getProperty(SokobanPropertyType.INSETS);
         // work on this shit later, more important shit to do
+        Media welcome = new Media(getClass().getResource("sounds/Final Fantasy VII - Opening Theme, Bombing Mission [HQ].mp3").toString());
+        MediaPlayer player = new MediaPlayer(welcome);
+        player.play();
         
 
         splashScreenPane = new StackPane();
@@ -238,6 +265,7 @@ public class SokobanUI extends Pane {
                 .getPropertyOptionsList(SokobanPropertyType.LEVEL_IMAGE_NAMES);
         ArrayList<String> levelFiles = props
                 .getPropertyOptionsList(SokobanPropertyType.LEVEL_FILES);
+        gamehistory = new Stack<int[][]>();
         
 
         levelSelectionPane = new FlowPane(); //change this to flowpane, and set it on top of the other pane
@@ -295,7 +323,7 @@ public class SokobanUI extends Pane {
         Scene scene = new Scene(border, 200, 100);
         winStage.setScene(scene);
         winStage.show();
-        //add a sound effect
+        victory.play();
         okButton.setOnAction(e -> {
             changeWorkspace(SokobanUIState.SPLASH_SCREEN_STATE);
             winStage.close();
@@ -368,21 +396,17 @@ public class SokobanUI extends Pane {
             int introw = (int)row;
             int sokX = sokobansHere[0];
             int sokY = sokobansHere[1];
-            System.out.println("sok coordinates"+ sokX +" "+sokY);
-            //grid[intcol][introw]; 
-            System.out.println("columnsrows"+ intcol +" "+ introw);
             if((intcol == sokX) && (introw == sokY)){
                 clicked = true;
             } else {
-                //if he's not clicked, second click
                 if((isAdjacentToSokoban(intcol, introw))){
                     if(intcol == sokX-1){//move left
                         moveSokoban(KeyCode.LEFT);
-                    } else if(intcol == sokX+1){
+                    } else if(intcol == sokX+1){//right
                         moveSokoban(KeyCode.RIGHT);
-                    } else if(introw == sokY+1){
+                    } else if(introw == sokY+1){//down
                         moveSokoban(KeyCode.DOWN);
-                    } else if (introw == sokY-1){
+                    } else if (introw == sokY-1){//up
                         moveSokoban(KeyCode.UP);
                     }
                 }
@@ -611,6 +635,7 @@ public class SokobanUI extends Pane {
         Scene scene = new Scene(border, 200, 100);
         loseStage.setScene(scene);
         loseStage.show();
+        lose.play();
         //add a sound effect
         okButton.setOnAction(e -> {
             changeWorkspace(SokobanUIState.SPLASH_SCREEN_STATE);
@@ -670,9 +695,11 @@ public class SokobanUI extends Pane {
                        grid[boxX][boxY] = preservedGrid[boxX][boxY];
                        grid[boxX-1][boxY] = 2; // put box in the new panel
                        isBoxMovable(direction, boxX-1, boxY);
+                       push.play();
                        haveWon();
                     } else { //if it's closed
                        canimove=1;
+                       buzz.play();
                        //isBoxMovable(direction, boxX, boxY);
                     }     
                 break;
@@ -681,9 +708,11 @@ public class SokobanUI extends Pane {
                        grid[boxX][boxY] = preservedGrid[boxX][boxY];
                        grid[boxX][boxY-1] = 2; // put box in the new panel
                        isBoxMovable(direction, boxX, boxY-1);
+                       push.play();
                        haveWon();
                 } else { // its not open
                     canimove=1;
+                    buzz.play();
                     //isBoxMovable(direction, boxX, boxY-1);
                 }
                 break;
@@ -692,9 +721,11 @@ public class SokobanUI extends Pane {
                        grid[boxX][boxY] = preservedGrid[boxX][boxY];
                        grid[boxX+1][boxY] = 2; // put box in the new panel
                        isBoxMovable(direction, boxX+1, boxY);
+                       push.play();
                        haveWon();
                 } else { // its not open
                     canimove=1;
+                    buzz.play();
                     //isBoxMovable(direction, boxX+1, boxY);
                 }
                 break;
@@ -703,10 +734,12 @@ public class SokobanUI extends Pane {
                        grid[boxX][boxY] = preservedGrid[boxX][boxY];
                        grid[boxX][boxY+1] = 2; // put sokoban in the new panel
                        isBoxMovable(direction, boxX, boxY+1);
+                       push.play();
                        haveWon();
                 } else { // its not open
                     canimove = 1;
-                    isBoxMovable(direction, boxX, boxY+1);
+                    buzz.play();
+                    //isBoxMovable(direction, boxX, boxY+1);
                 }
                 break;
         }
@@ -721,6 +754,7 @@ public class SokobanUI extends Pane {
         tempHist = cloneGrid();
         gamehistory.push(tempHist);
         
+        
         int sokX = sokobansHere[0]; //pass over sokoban's coordinates
         int sokY = sokobansHere[1];
         int canimove=0;
@@ -729,8 +763,10 @@ public class SokobanUI extends Pane {
                     if (isOpen(grid[sokX-1][sokY])==0){ // if the left side is open
                        grid[sokX][sokY] = preservedGrid[sokX][sokY];
                        grid[sokX-1][sokY] = 4; // put sokoban in the new panel
+                       move.play();
                     } else if(isOpen(grid[sokX-1][sokY])==2){ //if it's closed
                         //don't  move sokoban
+                        buzz.play();
                         //play a farting sound
                     } else { // it's gotta be  a box. have like a check box 
                         // function that does exactly the same thing
@@ -745,8 +781,9 @@ public class SokobanUI extends Pane {
                 if (isOpen(grid[sokX][sokY-1])== 0){ // it's open swagg swagg
                        grid[sokX][sokY] = preservedGrid[sokX][sokY];
                        grid[sokX][sokY-1] = 4; // put sokoban in the new panel
+                       move.play();
                 } else if(isOpen(grid[sokX][sokY-1])==2){ // its not open
-                    
+                    buzz.play();
                 } else { // it's gotta be a box
                     canimove = moveBox(direction,sokX,sokY-1);
                     if (canimove == 0){
@@ -759,8 +796,9 @@ public class SokobanUI extends Pane {
                 if (isOpen(grid[sokX+1][sokY])== 0){ // it's open swagg swagg
                        grid[sokX][sokY] = preservedGrid[sokX][sokY];
                        grid[sokX+1][sokY] = 4; // put sokoban in the new panel
+                       move.play();
                 } else if(isOpen(grid[sokX+1][sokY])==2){ // its not open
-                    
+                    buzz.play();
                 } else { // it's gotta be a box
                     
                     canimove = moveBox(direction,sokX+1,sokY);
@@ -774,8 +812,9 @@ public class SokobanUI extends Pane {
                 if (isOpen(grid[sokX][sokY+1])== 0){ // it's open swagg swagg
                        grid[sokX][sokY] = preservedGrid[sokX][sokY];
                        grid[sokX][sokY+1] = 4; // put sokoban in the new panel
+                       move.play();
                 } else if(isOpen(grid[sokX][sokY+1])==2){ // its not open
-                    
+                    buzz.play();
                 } else { // it's gotta be a box
                     canimove = moveBox(direction,sokX,sokY+1);
                     if (canimove == 0){
@@ -877,16 +916,6 @@ public class SokobanUI extends Pane {
                             gc.setFill(Color.WHITE);
                     }
 
-                    // THEN RENDER THE TEXT
-//                    String numToDraw = "" + grid[i][j];
-//                    double xInc = (w / 2) - (10 / 2);
-//                    double yInc = (h / 2) + (10 / 4);
-//                    x += xInc;
-//                    y += yInc;
-//                    gc.setFill(Color.RED);
-//                    gc.fillText(numToDraw, x, y);
-//                    x -= xInc;
-//                    y -= yInc;
 
                     // ON TO THE NEXT ROW
                     y += h;
@@ -927,6 +956,9 @@ public class SokobanUI extends Pane {
         Image img = new Image(ImgPath + imageName);
         return img;
     }
+    public void initStatsPane(){
+        
+    } 
 
     /**
      * This function selects the UI screen to display based on the uiScreen
