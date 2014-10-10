@@ -5,14 +5,21 @@ import application.Main.SokobanPropertyType;
 
 import java.io.IOException;
 import java.net.URL;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Stack;
+import java.util.TimerTask;
+import javafx.application.Platform;
 import javafx.embed.swing.SwingNode;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.event.EventType;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
@@ -34,6 +41,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javax.swing.JEditorPane;
 import javax.swing.JScrollPane;
@@ -59,6 +67,7 @@ public class SokobanUI extends Pane {
 
     // mainStage
     private Stage primaryStage;
+    boolean clicked = false;
 
     // mainPane
     private BorderPane mainPane;
@@ -75,8 +84,9 @@ public class SokobanUI extends Pane {
     private HBox northToolbar;
     private Button gameButton;
     private Button statsButton;
-    private Button helpButton;
+    private Button undoButton;
     private Button exitButton;
+    private Button backButton;
 
     // GamePane
     private Label SokobanLabel;
@@ -116,10 +126,15 @@ public class SokobanUI extends Pane {
     private int gridRows;
     private int grid[][];
     private int preservedGrid[][];
+    private int tempHist[][];
+    
     
     GridRenderer gridRenderer;
     private GraphicsContext gc;
     SokobanGameStateManager gsm;
+    
+    ArrayList<int[]> dots;
+    Stack<int[][]> gamehistory = new Stack<int[][]>();
     
     private int[] sokobansHere = new int[2];
     int prevPanel = 0;
@@ -135,6 +150,7 @@ public class SokobanUI extends Pane {
         //initSokobanUI();
         initSplashScreen();
     }
+    
     public void SetGrid(int[][] grid){
         this.grid = grid;
         gridRows = grid.length;
@@ -176,6 +192,8 @@ public class SokobanUI extends Pane {
     public JEditorPane getHelpPane() {
         return helpPane;
     }
+    
+    
 
     public void initMainPane() {
         marginlessInsets = new Insets(5, 5, 5, 5);
@@ -256,6 +274,74 @@ public class SokobanUI extends Pane {
         levelSelectionPane.toFront();
         mainPane.setCenter(splashScreenPane);
     }
+    public void haveWon(){
+        int number = 0;
+        for(int i=0;i <dots.size();i++){
+            if (testWin(dots.get(i))){
+                number++;
+        }else {
+                number = 0;
+        }
+        if(number == dots.size()){ //this is the win
+        gsm.win();
+        Stage winStage = new Stage();
+        winStage.initModality(Modality.WINDOW_MODAL);
+        BorderPane border = new BorderPane();
+        System.out.println("YOU WON");
+        Button okButton = new Button("aww yeeeee");
+        border.setBottom(okButton);
+        Label messagelabel = new Label("Dude, you just WON! Congrats");
+        border.setCenter(messagelabel);
+        Scene scene = new Scene(border, 200, 100);
+        winStage.setScene(scene);
+        winStage.show();
+        //add a sound effect
+        okButton.setOnAction(e -> {
+            changeWorkspace(SokobanUIState.SPLASH_SCREEN_STATE);
+            winStage.close();
+        });
+        }
+        }
+    }
+    public boolean boxOnDot(int[] arr){//pass in the box coordinates   
+        for(int[] win: dots){
+            if((arr[0]== win[0])&&(arr[1]==win[1]))
+                return true;
+        } return false;
+    }
+    
+    public boolean testWin(int[] arr){//pass in the array expecting dots, pass in dot coordinates
+        return (grid[arr[0]][arr[1]] == 2);
+    }
+    
+    public void storeTargets(){
+        dots = new ArrayList<int[]>();
+        int i = 0;
+        int j = 0;
+        for(;i < grid.length; i++){
+            for(j=0; j<grid[0].length;j++){
+                if(preservedGrid[i][j] == 3){
+                 int[] arr = new int[2];
+                 arr[0] = i;
+                 arr[1] = j;
+                 dots.add(arr);
+                }    
+            }
+        }
+    }
+    
+    public int[][] cloneGrid(){
+        int i = 0;//grid.length; columns
+        int j = 0;//grid[0].length; rows
+        int[][] destination = new int[grid.length][grid[0].length];
+        for(;i < grid.length;i++){
+            for(j=0;j < grid[0].length;j++){
+                destination[i][j] = grid[i][j];
+            }
+        }
+        return destination;
+        
+    }
 
     /**
      * This method initializes the language-specific game controls, which
@@ -266,10 +352,77 @@ public class SokobanUI extends Pane {
         // FIRST REMOVE THE SPLASH SCREEN
         mainPane.getChildren().clear();
         gamePanel.setCenter(gridRenderer);
-        preserveGrid();
-        // add key listeners tot he gamepanel, or tot eh mainpane
+        preservedGrid = preserveGrid();
+        storeTargets();
+        // add key listeners to the gamepanel, or to teh mainpane
         mainPane.setOnKeyPressed((KeyEvent ke) -> {
             eventHandler.respondToKeyEvent(ke);
+        });
+        gridRenderer.setOnMouseClicked(mouseEvent -> {
+            
+            double w = gridRenderer.getWidth() / gridColumns;
+            double col = mouseEvent.getX() / w;
+            double h = gridRenderer.getHeight() / gridRows;
+            double row = mouseEvent.getY() / h;
+            int intcol = (int)col;
+            int introw = (int)row;
+            int sokX = sokobansHere[0];
+            int sokY = sokobansHere[1];
+            System.out.println("sok coordinates"+ sokX +" "+sokY);
+            //grid[intcol][introw]; 
+            System.out.println("columnsrows"+ intcol +" "+ introw);
+            if((intcol == sokX) && (introw == sokY)){
+                clicked = true;
+            } else {
+                //if he's not clicked, second click
+                if((isAdjacentToSokoban(intcol, introw))){
+                    if(intcol == sokX-1){//move left
+                        moveSokoban(KeyCode.LEFT);
+                    } else if(intcol == sokX+1){
+                        moveSokoban(KeyCode.RIGHT);
+                    } else if(introw == sokY+1){
+                        moveSokoban(KeyCode.DOWN);
+                    } else if (introw == sokY-1){
+                        moveSokoban(KeyCode.UP);
+                    }
+                }
+                // you see its a valid move, column row, and  is it adjacent and open
+                //intcol introw, check if it's adjacent to sokoban, and check if its valid
+                //move sokobans position 1 unit  
+            }
+        });
+        gridRenderer.setOnMouseDragged(mouseEvent -> {
+            
+            double w = gridRenderer.getWidth() / gridColumns;
+            double col = mouseEvent.getX() / w;
+            double h = gridRenderer.getHeight() / gridRows;
+            double row = mouseEvent.getY() / h;
+            int intcol = (int)col;
+            int introw = (int)row;
+            int sokX = sokobansHere[0];
+            int sokY = sokobansHere[1];
+            System.out.println("sok coordinates"+ sokX +" "+sokY);
+            //grid[intcol][introw]; 
+            System.out.println("columnsrows"+ intcol +" "+ introw);
+            if((intcol == sokX) && (introw == sokY)){
+                clicked = true;
+            } else {
+                //if he's not clicked, second click
+                if((isAdjacentToSokoban(intcol, introw))){
+                    if(intcol == sokX-1){//move left
+                        moveSokoban(KeyCode.LEFT);
+                    } else if(intcol == sokX+1){
+                        moveSokoban(KeyCode.RIGHT);
+                    } else if(introw == sokY+1){
+                        moveSokoban(KeyCode.DOWN);
+                    } else if (introw == sokY-1){
+                        moveSokoban(KeyCode.UP);
+                    }
+                }
+                // you see its a valid move, column row, and  is it adjacent and open
+                //intcol introw, check if it's adjacent to sokoban, and check if its valid
+                //move sokobans position 1 unit  
+            }
         });
 
         // GET THE UPDATED TITLE
@@ -278,6 +431,7 @@ public class SokobanUI extends Pane {
         primaryStage.setTitle(title);
 
         // THEN ADD ALL THE STUFF WE MIGHT NOW USE
+        gsm.makeNewGame();
         initNorthToolbar();
 
         // OUR WORKSPACE WILL STORE EITHER THE GAME, STATS,
@@ -291,6 +445,24 @@ public class SokobanUI extends Pane {
         changeWorkspace(SokobanUIState.PLAY_GAME_STATE);
 
     }
+    public void getTime(Label timelabel){
+        timelabel.setText(gsm.getTime());
+    }
+    
+    public boolean isAdjacentToSokoban(int x, int y){//col, row
+        int sokx = sokobansHere[0];
+        int soky = sokobansHere[1];
+        if((x == sokx-1)||(x-1==sokx)){
+            if(y == soky)
+                return true; 
+        }else if((y == soky-1)||(y-1==soky)){
+            if (x == sokx)
+                return true;
+        } else {
+            return false;
+        } return false;      
+        }
+    
 
     /**
      * This function initializes all the controls that go in the north toolbar.
@@ -306,28 +478,51 @@ public class SokobanUI extends Pane {
         // MAKE AND INIT THE GAME BUTTON
         gameButton = initToolbarButton(northToolbar,
                 SokobanPropertyType.GAME_IMG_NAME);
-        //setTooltip(gameButton, SokobanPropertyType.GAME_TOOLTIP);
         gameButton.setOnAction((ActionEvent event) -> {
             eventHandler
                     .respondToSwitchScreenRequest(SokobanUIState.PLAY_GAME_STATE);
+        });
+        //MAKE AND INIT THE BACK BUTTON, WHICH GOES BACK TO SPLASHSCREEn
+        backButton = initToolbarButton(northToolbar,
+                SokobanPropertyType.BACK_IMG_NAME);
+        backButton.setOnAction((ActionEvent event) -> { 
+            eventHandler
+                    .respondToSwitchScreenRequest(SokobanUIState.SPLASH_SCREEN_STATE);
         });
 
         // MAKE AND INIT THE STATS BUTTON
         statsButton = initToolbarButton(northToolbar,
                 SokobanPropertyType.STATS_IMG_NAME);
-        //setTooltip(statsButton, SokobanPropertyType.STATS_TOOLTIP);
-
         statsButton.setOnAction((ActionEvent event) -> {
             eventHandler
                     .respondToSwitchScreenRequest(SokobanUIState.VIEW_STATS_STATE);
         });
-        // MAKE AND INIT THE HELP BUTTON
-        helpButton = initToolbarButton(northToolbar,
+        //make the timelabel
+        Label timelabel = new Label("time"); //i have to have something listening
+        Thread timethread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    while (gsm.isGameInProgress()) {
+                        //getTime(timelabel);
+                        Platform.runLater(() -> {
+                            
+                                getTime(timelabel);
+                        
+                        });
+                        Thread.sleep(1000);
+                    }
+                } catch (InterruptedException ex) { System.out.println("FUCKING INTERRUPTED");
+                }
+            }
+        });//.start();
+        timethread.start();
+        northToolbar.getChildren().add(timelabel);
+        // MAKE AND INIT THE undo BUTTON
+        undoButton = initToolbarButton(northToolbar,
                 SokobanPropertyType.UNDO_IMG_NAME);
-        //setTooltip(helpButton, SokobanPropertyType.HELP_TOOLTIP);
-        helpButton.setOnAction((ActionEvent event) -> {
-            eventHandler
-                    .respondToSwitchScreenRequest(SokobanUIState.VIEW_HELP_STATE);
+        undoButton.setOnAction((ActionEvent event) -> {
+            eventHandler.respondToUndoRequest();
         });
 
         // MAKE AND INIT THE EXIT BUTTON
@@ -341,6 +536,11 @@ public class SokobanUI extends Pane {
         // AND NOW PUT THE NORTH TOOLBAR IN THE FRAME
         mainPane.setTop(northToolbar);
         //mainPane.getChildren().add(northToolbar);
+    }
+    
+    public void undoMove(){
+        this.grid = gamehistory.pop();
+        this.gridRenderer.repaint();
     }
 
     /**
@@ -380,7 +580,8 @@ public class SokobanUI extends Pane {
         // 0 is open, 1 is box, 2 is blocked
         int r = 0;
         switch(value){
-            case 3: //if it's a space or a goal, it's open
+            case 3: //if it's a space or a goal, it's open, or even sokoban
+            case 4:
             case 0: r = 0;
                 break;
             case 1: // if it's a wall
@@ -393,6 +594,72 @@ public class SokobanUI extends Pane {
         return r;
     }
     
+    public void lose(){ // BLEGHH YOU LOST MY NIGGA
+        // tell gsm to end the game, record stats and shit
+        //mainPane.
+        gsm.GameOver();
+        //mainpane.setDisable(true);
+        //northtoolbar.setDisable(false);
+        Stage loseStage = new Stage();
+        loseStage.initModality(Modality.WINDOW_MODAL);
+        BorderPane border = new BorderPane();
+        System.out.println("LOST");
+        Button okButton = new Button("Aww man..");
+        border.setBottom(okButton);
+        Label messagelabel = new Label("Dude, You just lost.");
+        border.setCenter(messagelabel);
+        Scene scene = new Scene(border, 200, 100);
+        loseStage.setScene(scene);
+        loseStage.show();
+        //add a sound effect
+        okButton.setOnAction(e -> {
+            changeWorkspace(SokobanUIState.SPLASH_SCREEN_STATE);
+            loseStage.close();
+        });
+        
+        
+    }
+    
+    public void isBoxMovable(KeyCode direction, int boxX, int boxY){ //pass in box coordinates
+        // check adjacent squares to see if they are open or blocked off
+        boolean isLost = false;
+        int[] arr = new int[2];
+            arr[0] = boxX;
+            arr[1] = boxY;
+        if(boxOnDot(arr)){
+            System.out.println("placed Box"+boxX+" "+boxY);
+            return;
+        }
+        switch(direction){
+            case LEFT: // box is blocked off on the left side, check top and bottom
+                if(!(isOpen(grid[boxX-1][boxY])==0)){ // check that it's actually blocked off
+                    if ((isOpen(grid[boxX][boxY-1])!= 0)||(isOpen(grid[boxX][boxY+1])!=0))
+                        isLost = true;
+                }
+                break;
+            case RIGHT: // box is blocked off on the right side, check top and bottom
+                if(!(isOpen(grid[boxX+1][boxY])==0)){
+                    if ((isOpen(grid[boxX][boxY-1])!= 0)||(isOpen(grid[boxX][boxY+1])!=0)) 
+                        isLost = true;
+                }
+                break;
+            case UP: // box is blocked off from the top, check right and left
+                if(!(isOpen(grid[boxX][boxY-1])==0)){
+                    if ((isOpen(grid[boxX-1][boxY])!= 0)||(isOpen(grid[boxX+1][boxY])!=0))
+                    isLost = true;
+                }
+                break;
+            case DOWN: // box is blocked ohh from the bottom, check right and left 
+                if(!(isOpen(grid[boxX][boxY+1])==0)){
+                    if ((isOpen(grid[boxX-1][boxY])!= 0)||(isOpen(grid[boxX+1][boxY])!=0)) 
+                        isLost = true;
+                }
+                break;
+        } 
+        if (isLost)
+            lose();
+    }
+    
     public int moveBox(KeyCode direction, int boxX, int boxY){
         // this does exactly the same thing as moveSokoban, excecpt it moves the box
         // pretty inefficeint, but I DONT GIVE A FLYING FUCK
@@ -401,35 +668,45 @@ public class SokobanUI extends Pane {
             case LEFT: //check if the left side of sokoban on the grid is free, move him if it is.
                     if (isOpen(grid[boxX-1][boxY])==0){ // if the left side is open
                        grid[boxX][boxY] = preservedGrid[boxX][boxY];
-                        System.out.println(preservedGrid[boxX][boxY]);
                        grid[boxX-1][boxY] = 2; // put box in the new panel
+                       isBoxMovable(direction, boxX-1, boxY);
+                       haveWon();
                     } else { //if it's closed
                        canimove=1;
+                       //isBoxMovable(direction, boxX, boxY);
                     }     
                 break;
             case UP:
                 if (isOpen(grid[boxX][boxY-1])== 0){ // it's open swagg swagg
                        grid[boxX][boxY] = preservedGrid[boxX][boxY];
-                       System.out.println(preservedGrid[boxX][boxY]);
                        grid[boxX][boxY-1] = 2; // put box in the new panel
+                       isBoxMovable(direction, boxX, boxY-1);
+                       haveWon();
                 } else { // its not open
                     canimove=1;
+                    //isBoxMovable(direction, boxX, boxY-1);
                 }
                 break;
             case RIGHT:
                 if (isOpen(grid[boxX+1][boxY])== 0){ // it's open swagg swagg
                        grid[boxX][boxY] = preservedGrid[boxX][boxY];
                        grid[boxX+1][boxY] = 2; // put box in the new panel
+                       isBoxMovable(direction, boxX+1, boxY);
+                       haveWon();
                 } else { // its not open
                     canimove=1;
+                    //isBoxMovable(direction, boxX+1, boxY);
                 }
                 break;
             case DOWN:
                 if (isOpen(grid[boxX][boxY+1])== 0){ // it's open swagg swagg
                        grid[boxX][boxY] = preservedGrid[boxX][boxY];
                        grid[boxX][boxY+1] = 2; // put sokoban in the new panel
+                       isBoxMovable(direction, boxX, boxY+1);
+                       haveWon();
                 } else { // its not open
                     canimove = 1;
+                    isBoxMovable(direction, boxX, boxY+1);
                 }
                 break;
         }
@@ -440,10 +717,12 @@ public class SokobanUI extends Pane {
         // using direction as well as sokoban's location
         // will check location, and then move sokoban
         // if there is abox, move the box as well
+        // prior to that, we're going to put the grid into history
+        tempHist = cloneGrid();
+        gamehistory.push(tempHist);
+        
         int sokX = sokobansHere[0]; //pass over sokoban's coordinates
         int sokY = sokobansHere[1];
-        // no, its ok. im just doig math to the wrong coordinate
-        //also, i have to tel sokoban somehow, that he can't walk over blocks
         int canimove=0;
         switch(direction){
             case LEFT: //check if the left side of sokoban on the grid is free, move him if it is.
@@ -509,21 +788,22 @@ public class SokobanUI extends Pane {
         this.gridRenderer.repaint();
     }
     
-    public void preserveGrid(){
+    public int[][] preserveGrid(){
         //call this whenever initSokobanUI is called, and it will save the original grid
         // ito a copy that saves all the original grid values
         int i = 0;//grid.length; columns
         int j = 0;//grid[0].length; rows
-        preservedGrid = new int[grid.length][grid[0].length];
+        int[][] destination = new int[grid.length][grid[0].length];
         for(;i < grid.length;i++){
             for(j=0;j < grid[0].length;j++){
                 if ((grid[i][j]==2) || (grid[i][j]==4)) // if it's sokoban or a wall, it should save blanks
-                    preservedGrid[i][j] = 0;
+                    destination[i][j] = 0;
                  else 
-                    preservedGrid[i][j] = grid[i][j];
+                    destination[i][j] = grid[i][j];
                 
             }
         }
+        return destination;
                 
     }
     
@@ -589,7 +869,7 @@ public class SokobanUI extends Pane {
                             // an array that holds sokoban's coordinates
                             sokobansHere[0] = i;
                             sokobansHere[1] = j;
-                            System.out.println(i + " " + j);
+                            System.out.println("sokoban is now "+ i + " " + j);
                             break;
                         case 5: //outside; change the fill and then change it back
                             gc.setFill(Color.LIGHTBLUE);
@@ -665,6 +945,9 @@ public class SokobanUI extends Pane {
             case VIEW_STATS_STATE:
                 mainPane.setCenter(statsScrollPane);
                 break;
+            case SPLASH_SCREEN_STATE:
+                mainPane.setCenter(splashScreenPane);
+                mainPane.setTop(null);
             default:
         }
 
