@@ -5,6 +5,7 @@ import application.Main.SokobanPropertyType;
 import java.io.File;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
 import java.time.Clock;
 import java.time.Duration;
@@ -112,24 +113,26 @@ public class SokobanUI extends Pane {
 
     // Padding
     private Insets marginlessInsets;
-    String buzzfile = "sounds/buzz.mp3";
-    String losefile = "sounds/lose.mp3";
-    String movefile = "sounds/move.mp3";
-    String pushfile = "sounds/push.mp3";
-    String Victoryfile = "sounds/victory.mp3";
+    File buzzfile = new  File("sounds/buzz.wav");
+    File losefile = new File("sounds/lose.wav");
+    File movefile = new File("sounds/move.wav");
+    File pushfile = new File("sounds/push.wav");
+    File Victoryfile = new File("sounds/victory.mp3");
     
     //sounds
-    private Media buzzr = new Media(getClass().getResource(buzzfile).toString());
-    private Media loser = new Media(getClass().getResource(losefile).toString());
-    private Media mover = new Media(getClass().getResource(movefile).toString());
-    private Media pushr = new Media(getClass().getResource(pushfile).toString());
-    private Media victoryr = new Media(getClass().getResource(Victoryfile).toString());
+    //private Media buzzr = new Media(getClass().getResource(buzzfile).toString());
+//    private Media loser = new Media(getClass().getResource(losefile).toString());
+//    private Media mover = new Media(getClass().getResource(movefile).toString());
+//    private Media pushr = new Media(getClass().getResource(pushfile).toString());
+//    private Media victoryr = new Media(getClass().getResource(Victoryfile).toString());
+    private MediaPlayer player;
     
-    private MediaPlayer buzz = new MediaPlayer(buzzr);
-    private MediaPlayer lose = new MediaPlayer(loser);
-    private MediaPlayer move = new MediaPlayer(mover);
-    private MediaPlayer push = new MediaPlayer(pushr);
-    private MediaPlayer victory = new MediaPlayer(victoryr);
+    private AudioClip buzz = new AudioClip(buzzfile.toURI().toString());
+    private AudioClip lose = new AudioClip(losefile.toURI().toString());
+    private AudioClip move = new AudioClip(movefile.toURI().toString());
+    private AudioClip push = new AudioClip(pushfile.toURI().toString());
+    private AudioClip victory = new AudioClip(Victoryfile.toURI().toString());
+    
     // Image path
     private String ImgPath = "file:images/";
     // mainPane weight && height
@@ -241,8 +244,8 @@ public class SokobanUI extends Pane {
         props.addProperty(SokobanPropertyType.INSETS, "5");
         String str = props.getProperty(SokobanPropertyType.INSETS);
         // work on this shit later, more important shit to do
-        Media welcome = new Media(getClass().getResource("sounds/Final Fantasy VII - Opening Theme, Bombing Mission [HQ].mp3").toString());
-        MediaPlayer player = new MediaPlayer(welcome);
+        Media welcome = new Media(getClass().getResource("sounds/Final Fantasy VII - Prelude [HQ].mp3").toString());
+        player = new MediaPlayer(welcome);
         player.play();
         
 
@@ -302,6 +305,7 @@ public class SokobanUI extends Pane {
         levelSelectionPane.toFront();
         mainPane.setCenter(splashScreenPane);
     }
+    
     public void haveWon(){
         int number = 0;
         for(int i=0;i <dots.size();i++){
@@ -326,6 +330,7 @@ public class SokobanUI extends Pane {
         victory.play();
         okButton.setOnAction(e -> {
             changeWorkspace(SokobanUIState.SPLASH_SCREEN_STATE);
+            victory.stop();
             winStage.close();
         });
         }
@@ -379,6 +384,7 @@ public class SokobanUI extends Pane {
         //should probably use this method in the constructor.
         // FIRST REMOVE THE SPLASH SCREEN
         mainPane.getChildren().clear();
+        player.stop();
         gamePanel.setCenter(gridRenderer);
         preservedGrid = preserveGrid();
         storeTargets();
@@ -639,6 +645,7 @@ public class SokobanUI extends Pane {
         //add a sound effect
         okButton.setOnAction(e -> {
             changeWorkspace(SokobanUIState.SPLASH_SCREEN_STATE);
+            lose.stop();
             loseStage.close();
         });
         
@@ -761,9 +768,9 @@ public class SokobanUI extends Pane {
         switch(direction){
             case LEFT: //check if the left side of sokoban on the grid is free, move him if it is.
                     if (isOpen(grid[sokX-1][sokY])==0){ // if the left side is open
+                       move.play();
                        grid[sokX][sokY] = preservedGrid[sokX][sokY];
                        grid[sokX-1][sokY] = 4; // put sokoban in the new panel
-                       move.play();
                     } else if(isOpen(grid[sokX-1][sokY])==2){ //if it's closed
                         //don't  move sokoban
                         buzz.play();
@@ -779,9 +786,9 @@ public class SokobanUI extends Pane {
                 break;
             case UP:
                 if (isOpen(grid[sokX][sokY-1])== 0){ // it's open swagg swagg
+                       move.play();
                        grid[sokX][sokY] = preservedGrid[sokX][sokY];
                        grid[sokX][sokY-1] = 4; // put sokoban in the new panel
-                       move.play();
                 } else if(isOpen(grid[sokX][sokY-1])==2){ // its not open
                     buzz.play();
                 } else { // it's gotta be a box
@@ -794,9 +801,9 @@ public class SokobanUI extends Pane {
                 break;
             case RIGHT:
                 if (isOpen(grid[sokX+1][sokY])== 0){ // it's open swagg swagg
+                       move.play();
                        grid[sokX][sokY] = preservedGrid[sokX][sokY];
                        grid[sokX+1][sokY] = 4; // put sokoban in the new panel
-                       move.play();
                 } else if(isOpen(grid[sokX+1][sokY])==2){ // its not open
                     buzz.play();
                 } else { // it's gotta be a box
@@ -810,9 +817,9 @@ public class SokobanUI extends Pane {
                 break;
             case DOWN:
                 if (isOpen(grid[sokX][sokY+1])== 0){ // it's open swagg swagg
+                       move.play();
                        grid[sokX][sokY] = preservedGrid[sokX][sokY];
                        grid[sokX][sokY+1] = 4; // put sokoban in the new panel
-                       move.play();
                 } else if(isOpen(grid[sokX][sokY+1])==2){ // its not open
                     buzz.play();
                 } else { // it's gotta be a box

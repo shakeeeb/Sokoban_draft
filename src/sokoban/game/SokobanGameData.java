@@ -126,6 +126,10 @@ public class SokobanGameData {
     public boolean isWon() {
         return isWon;
     }
+    
+    public void winGame(){
+        isWon = true;
+    }
 
         /**
      * Check if the game was lost.
